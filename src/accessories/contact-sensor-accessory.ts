@@ -7,6 +7,7 @@ import type { AccessoryDeps } from "./base.js";
 
 const AERATION_SERVICE_SUBTYPE = "aeration";
 const AERATION_VALUES = ["2", "AERATION", "VENTILATION", "OPEN_HOPPER", "OPENING_HOPPER"];
+const OPEN_STATES = ["LOCKED", "OPEN", "OPEN_FRENCH", "OPEN_HOPPER"];
 
 const isAeration = (value: unknown): boolean => {
   const normalizedValue = typeof value === "string" ? value.trim().toUpperCase() : value;
@@ -22,6 +23,11 @@ const isOpen = (value: unknown): boolean => {
     ["1", "OPEN", "OPENED", "TRUE"].includes(normalizedValue as string)
   );
 };
+
+const getContactState = (intrusionDetect: unknown, openState: unknown): boolean =>
+  typeof openState === "string" && OPEN_STATES.includes(openState.trim().toUpperCase())
+    ? openState.trim().toUpperCase() !== "LOCKED"
+    : isOpen(intrusionDetect);
 
 /** A door or window opening contact (Delta Dore MDO). */
 export class ContactSensorAccessory extends BaseAccessory {
@@ -44,12 +50,14 @@ export class ContactSensorAccessory extends BaseAccessory {
       debugGet(ContactSensorState, this.#service);
       const data = await this.read();
       const intrusionDetect = getTydomDataPropValue(data, "intrusionDetect");
+      const openState = data.find(({ name }) => name === "openState")?.value;
       debug(
         `[ContactSensor] deviceId=${this.deviceId} endpointId=${this.endpointId} ` +
           `intrusionDetect raw=${JSON.stringify(intrusionDetect)} type=${typeof intrusionDetect} ` +
+          `openState raw=${JSON.stringify(openState)} type=${typeof openState} ` +
           `data=${JSON.stringify(data)}`,
       );
-      const nextValue = isOpen(intrusionDetect)
+      const nextValue = getContactState(intrusionDetect, openState)
         ? ContactSensorState.CONTACT_DETECTED
         : ContactSensorState.CONTACT_NOT_DETECTED;
       debugGetResult(ContactSensorState, this.#service, nextValue);
@@ -61,12 +69,14 @@ export class ContactSensorAccessory extends BaseAccessory {
       debugGet(On, this.#aerationService!);
       const data = await this.read();
       const intrusionDetect = getTydomDataPropValue(data, "intrusionDetect");
+      const openState = data.find(({ name }) => name === "openState")?.value;
       debug(
         `[ContactSensor] deviceId=${this.deviceId} endpointId=${this.endpointId} ` +
-          `aeration raw=${JSON.stringify(intrusionDetect)} type=${typeof intrusionDetect} ` +
+          `aeration raw=${JSON.stringify(openState)} type=${typeof openState} ` +
+          `intrusionDetect raw=${JSON.stringify(intrusionDetect)} type=${typeof intrusionDetect} ` +
           `data=${JSON.stringify(data)}`,
       );
-      const nextValue = isAeration(intrusionDetect);
+      const nextValue = isAeration(openState);
       debugGetResult(On, this.#aerationService!, nextValue);
       return nextValue;
     });
@@ -74,21 +84,21 @@ export class ContactSensorAccessory extends BaseAccessory {
 
   protected override apply(updates: Record<string, unknown>[]): void {
     const { ContactSensorState } = this.platform.Characteristic;
-    for (const { name, value } of updates) {
-      if (name !== "intrusionDetect") {
-        continue;
-      }
+    const intrusionDetect = updates.find(({ name }) => name === "intrusionDetect")?.value;
+    const openState = updates.find(({ name }) => name === "openState")?.value;
+    if (intrusionDetect !== undefined || openState !== undefined) {
       debug(
         `[ContactSensor] deviceId=${this.deviceId} endpointId=${this.endpointId} ` +
-          `intrusionDetect update raw=${JSON.stringify(value)} type=${typeof value}`,
+          `intrusionDetect update raw=${JSON.stringify(intrusionDetect)} type=${typeof intrusionDetect} ` +
+          `openState update raw=${JSON.stringify(openState)} type=${typeof openState}`,
       );
-      const nextValue = isOpen(value)
+      const nextValue = getContactState(intrusionDetect, openState)
         ? ContactSensorState.CONTACT_DETECTED
         : ContactSensorState.CONTACT_NOT_DETECTED;
       debugSetUpdate(ContactSensorState, this.#service, nextValue);
       this.#service.updateCharacteristic(ContactSensorState, nextValue);
       if (this.#aerationService) {
-        const aeration = isAeration(value);
+        const aeration = isAeration(openState);
         debugSetUpdate(this.platform.Characteristic.On, this.#aerationService, aeration);
         this.#aerationService.updateCharacteristic(this.platform.Characteristic.On, aeration);
       }
