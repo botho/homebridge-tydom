@@ -1,7 +1,7 @@
 import { getTydomDataPropValue } from "../api/types.js";
 import { CATEGORY } from "../api/device-type.js";
 import type { Service } from "homebridge";
-import { debugGet, debugGetResult, debugSetUpdate } from "../platform/trace.js";
+import { debug, debugGet, debugGetResult, debugSetUpdate } from "../platform/trace.js";
 import { BaseAccessory } from "./base-accessory.js";
 import type { AccessoryDeps } from "./base.js";
 
@@ -44,6 +44,11 @@ export class ContactSensorAccessory extends BaseAccessory {
       debugGet(ContactSensorState, this.#service);
       const data = await this.read();
       const intrusionDetect = getTydomDataPropValue(data, "intrusionDetect");
+      debug(
+        `[ContactSensor] deviceId=${this.deviceId} endpointId=${this.endpointId} ` +
+          `intrusionDetect raw=${JSON.stringify(intrusionDetect)} type=${typeof intrusionDetect} ` +
+          `data=${JSON.stringify(data)}`,
+      );
       const nextValue = isOpen(intrusionDetect)
         ? ContactSensorState.CONTACT_DETECTED
         : ContactSensorState.CONTACT_NOT_DETECTED;
@@ -56,6 +61,11 @@ export class ContactSensorAccessory extends BaseAccessory {
       debugGet(On, this.#aerationService!);
       const data = await this.read();
       const intrusionDetect = getTydomDataPropValue(data, "intrusionDetect");
+      debug(
+        `[ContactSensor] deviceId=${this.deviceId} endpointId=${this.endpointId} ` +
+          `aeration raw=${JSON.stringify(intrusionDetect)} type=${typeof intrusionDetect} ` +
+          `data=${JSON.stringify(data)}`,
+      );
       const nextValue = isAeration(intrusionDetect);
       debugGetResult(On, this.#aerationService!, nextValue);
       return nextValue;
@@ -68,6 +78,10 @@ export class ContactSensorAccessory extends BaseAccessory {
       if (name !== "intrusionDetect") {
         continue;
       }
+      debug(
+        `[ContactSensor] deviceId=${this.deviceId} endpointId=${this.endpointId} ` +
+          `intrusionDetect update raw=${JSON.stringify(value)} type=${typeof value}`,
+      );
       const nextValue = isOpen(value)
         ? ContactSensorState.CONTACT_DETECTED
         : ContactSensorState.CONTACT_NOT_DETECTED;
