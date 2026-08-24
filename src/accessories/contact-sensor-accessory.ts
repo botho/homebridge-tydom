@@ -7,7 +7,7 @@ import type { AccessoryDeps } from "./base.js";
 
 const AERATION_SERVICE_SUBTYPE = "aeration";
 const AERATION_VALUES = ["2", "AERATION", "VENTILATION", "OPEN_HOPPER", "OPENING_HOPPER"];
-const OPEN_STATES = ["LOCKED", "OPEN", "OPEN_FRENCH", "OPEN_HOPPER"];
+const OPEN_STATES = ["UNLOCKED", "OPEN", "OPEN_FRENCH", "OPEN_HOPPER"];
 
 const isAeration = (value: unknown): boolean => {
   const normalizedValue = typeof value === "string" ? value.trim().toUpperCase() : value;
@@ -25,8 +25,8 @@ const isOpen = (value: unknown): boolean => {
 };
 
 const getContactState = (intrusionDetect: unknown, openState: unknown): boolean =>
-  typeof openState === "string" && OPEN_STATES.includes(openState.trim().toUpperCase())
-    ? openState.trim().toUpperCase() !== "LOCKED"
+  typeof openState === "string" && ["LOCKED", ...OPEN_STATES].includes(openState.trim().toUpperCase())
+    ? OPEN_STATES.includes(openState.trim().toUpperCase())
     : isOpen(intrusionDetect);
 
 /** A door or window opening contact (Delta Dore MDO). */
